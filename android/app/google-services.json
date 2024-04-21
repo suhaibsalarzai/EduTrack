@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "706091807851",
+    "project_id": "edutrack-a0655",
+    "storage_bucket": "edutrack-a0655.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:706091807851:android:1653694cc6f7e52705ed2e",
+        "android_client_info": {
+          "package_name": "com.example.edutrack"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCyfJwIozvhNFuXbj-Bmfdi5t9nNJmQI8c"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
