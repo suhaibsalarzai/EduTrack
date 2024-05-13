@@ -1,3 +1,4 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
 class BusDetailsForm extends StatefulWidget {
@@ -8,6 +9,30 @@ class BusDetailsForm extends StatefulWidget {
 class _BusDetailsFormState extends State<BusDetailsForm> {
   final _formKey = GlobalKey<FormState>();
   final _busDetails = BusDetails();
+
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+
+  Future<void> addBus(BusDetails busDetails) async {
+    try {
+      await _firestore.collection('buses').add({
+        'vehicleNumber': busDetails.vehicleNumber,
+        'driverName': busDetails.driverName,
+        'driverPhone': busDetails.driverPhone,
+        'timeSlot': busDetails.timeSlot,
+      });
+
+      // Reset the form fields
+      _formKey.currentState?.reset();
+
+      // Show Snackbar message
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Bus added successfully')),
+      );
+
+    } catch (e) {
+      throw Exception('Failed to add bus: $e');
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -49,7 +74,7 @@ class _BusDetailsFormState extends State<BusDetailsForm> {
               TextFormField(
                 decoration: InputDecoration(labelText: 'Driver Phone Number'),
                 validator: (value) {
-                  if (value == null || value.isEmpty || !RegExp(r'^\d{10}$').hasMatch(value)) {
+                  if (value == null || value.isEmpty || !RegExp(r'^\d{11}$').hasMatch(value)) {
                     return 'Please enter a valid phone number';
                   }
                   return null;
@@ -80,9 +105,8 @@ class _BusDetailsFormState extends State<BusDetailsForm> {
                 onPressed: () {
                   if (_formKey.currentState?.validate() ?? false) {
                     _formKey.currentState!.save();
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Processing Data')),
-                    );
+                    // Access the provider and call addBus method
+                    addBus(_busDetails);
                   }
                 },
                 child: Text('Add Bus'),
@@ -109,4 +133,3 @@ class BusDetails {
     this.timeSlot
   });
 }
-

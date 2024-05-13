@@ -1,5 +1,4 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:flutter/material.dart';
 
 class FirestoreAuthService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -9,17 +8,31 @@ class FirestoreAuthService {
       // Query the database for a user with the given id
       QuerySnapshot snapshot = await _firestore.collection('users')
           .where('id', isEqualTo: id)
-          .where('password', isEqualTo: password)
-          .where('role', isEqualTo: role)
           .limit(1)
           .get();
 
       if (snapshot.docs.isEmpty) {
-        return "Invalid credentials or role. Please contact admin.";
+        // No user found with the provided id
+        return "Invalid credentials. Please contact admin.";
       } else {
-        return null; // Login successful
+        // User found with the provided id, check password and role
+        var userDoc = snapshot.docs.first;
+        print('user passord is ${userDoc['password']}');
+        print('user role is ${userDoc['role']}');
+        print('user passord from appis ${password}');
+        print('user role from appis ${role}');
+
+
+        if (userDoc['password'] != password || userDoc['role'] != role) {
+          // Password or role does not match
+          return "Invalid pasword or role. Please contact admin.";
+        } else {
+          // Password and role match, login successful
+          return null;
+        }
       }
     } catch (e) {
+      // Error accessing data
       return "Error accessing data. Please try again.";
     }
   }

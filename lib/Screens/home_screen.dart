@@ -1,15 +1,37 @@
+import 'package:edutrack/Screens/add_parent_screen.dart';
+import 'package:edutrack/Screens/login_screen.dart';
+import 'package:edutrack/Screens/view_parents_screen.dart';
 import 'package:edutrack/Screens/students_screen.dart';
+import 'package:edutrack/Screens/view_buses_screen.dart';
+import 'package:edutrack/Screens/view_student_screen.dart';
 import 'package:flutter/material.dart';
 
 import 'bus_screen.dart';
 
 class HomeScreen extends StatelessWidget {
+
+  void _signOut(BuildContext context) {
+    // Implement your sign-out logic here
+    // For example:
+    // Clear any user session data or tokens
+    // Navigate to the login screen or any other screen after signing out
+    Navigator.pushReplacement(context, MaterialPageRoute(builder: (context)=>LoginScreen()));
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: Text('Admin Dashboard'),
         // Adjust the color to fit your theme
+        actions: [
+          IconButton(
+            icon: Icon(Icons.exit_to_app),
+            onPressed: () {
+              _signOut(context); // Call the sign-out function
+            },
+          ),
+        ],
       ),
       body: SingleChildScrollView(
         child: Column(
@@ -43,6 +65,11 @@ class HomeScreen extends StatelessWidget {
                   Colors.lightBlue,
                   () {
                     // Navigate to View Buses Screen
+                    Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (context) => ViewBusesScreen()));
+
                   },
                 ),
                 _createDashboardItem(
@@ -65,6 +92,12 @@ class HomeScreen extends StatelessWidget {
                   Colors.red,
                   () {
                     // Navigate to View Students Screen
+                    Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (context) => ViewStudentsScreen()));
+
+
                   },
                 ),
               ],
@@ -77,11 +110,38 @@ class HomeScreen extends StatelessWidget {
                 child: ElevatedButton(
                   onPressed: () {
                     // Action for Add Parents
+                    Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (context) => AddParentScreen()));
+
                   },
                   child: Text('Add Parents'),
                   style: ElevatedButton.styleFrom(
-                    primary: Colors.purple, // Button color
-                    onPrimary: Colors.white, // Text color
+                    foregroundColor: Colors.white, backgroundColor: Colors.purple, // Text color
+                    padding: EdgeInsets.symmetric(
+                        vertical: 20.0), // Button padding for larger touch area
+                  ),
+                ),
+              ),
+            ),
+            Padding(
+              padding: EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+              child: Container(
+                width: double
+                    .infinity, // Makes the button's width as wide as the screen
+                child: ElevatedButton(
+                  onPressed: () {
+                    // Action for Add Parents
+                    Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (context) => ViewParentsScreen()));
+
+                  },
+                  child: Text('View Parents'),
+                  style: ElevatedButton.styleFrom(
+                    foregroundColor: Colors.white, backgroundColor: Colors.purpleAccent, // Text color
                     padding: EdgeInsets.symmetric(
                         vertical: 20.0), // Button padding for larger touch area
                   ),

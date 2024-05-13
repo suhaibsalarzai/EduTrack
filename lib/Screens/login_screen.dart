@@ -105,7 +105,11 @@ class _LoginScreenState extends State<LoginScreen> {
                   'Login',
                   style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
                 ),
-                onPressed:  _login,
+               // onPressed:  _login,
+                onPressed: (){
+                  Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => HomeScreen()));
+                }
+
               ),
               SizedBox(height: 12.0),
             ],
