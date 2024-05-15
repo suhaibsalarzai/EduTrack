@@ -1,4 +1,5 @@
 
+import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
@@ -32,6 +33,24 @@ class _ViewStudentsScreenState extends State<ViewStudentsScreen> {
       return [];
     }
   }
+
+  // Get bus details by busId
+  Future<String> _getBusDetails(String? busId) async {
+    if (busId == null) return 'Not Assigned';
+
+    try {
+      var busDoc = await _firestore.collection('buses').doc(busId).get();
+      var busData = busDoc.data() as Map<String, dynamic>?;
+      if (busData != null) {
+        return '${busData['vehicleNumber'] ?? 'No Vehicle Number'} at ${busData['timeSlot'] ?? 'No Time Slot'}';
+      }
+    } catch (e) {
+      print('Error fetching bus details: $e');
+    }
+
+    return 'Details Not Available';
+  }
+
 
 // Delete student
   Future<void> _deleteStudent(String studentId) async {
@@ -114,11 +133,8 @@ class _ViewStudentsScreenState extends State<ViewStudentsScreen> {
 
     return '';
   }
-
-
-  // Show dialog for bus assignment
   Future<void> _showBusAssignmentDialog(String studentId, String? currentBusId) async {
-    String? newBusId = await showDialog<String>(
+    Map<String, String>? newBusDetails = await showDialog<Map<String, String>?>(
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
@@ -131,13 +147,20 @@ class _ViewStudentsScreenState extends State<ViewStudentsScreen> {
                 Text('Select a bus to assign:'),
                 DropdownButtonFormField<String>(
                   value: currentBusId,
-                  onChanged: (newValue) {
-                    Navigator.pop(context, newValue);
+                  onChanged: (String? newValue) {
+                    // Using firstWhereOrNull to safely handle the case where no bus matches
+                    var selectedBus = _buses.firstWhereOrNull((bus) => bus.id == newValue);
+                    if (selectedBus != null) {
+                      Navigator.pop(context, {
+                        'id': selectedBus.id,
+                        'details': '${selectedBus['vehicleNumber']} at ${selectedBus['timeSlot']}'
+                      });
+                    }
                   },
-                  items: _buses.map((bus) {
+                  items: _buses.map((DocumentSnapshot bus) {
                     return DropdownMenuItem<String>(
                       value: bus.id,
-                      child: Text(bus['vehicleNumber'] ?? ''),
+                      child: Text('${bus['vehicleNumber']} at ${bus['timeSlot']}'),
                     );
                   }).toList(),
                 ),
@@ -146,7 +169,7 @@ class _ViewStudentsScreenState extends State<ViewStudentsScreen> {
           ),
           actions: <Widget>[
             TextButton(
-              onPressed: () => Navigator.pop(context),
+              onPressed: () => Navigator.pop(context, null),
               child: Text('Cancel'),
             ),
           ],
@@ -154,24 +177,26 @@ class _ViewStudentsScreenState extends State<ViewStudentsScreen> {
       },
     );
 
-
-    if (newBusId != null) {
-      _assignBus(studentId, newBusId);
+    // If the user selected a bus, update the student's record
+    if (newBusDetails != null) {
+      await _assignBus(studentId, newBusDetails['id'], newBusDetails['details']);
     }
   }
 
-
-  // Assign bus to student
-  Future<void> _assignBus(String studentId, String? busId) async {
+  Future<void> _assignBus(String studentId, String? busId, String? busDetails) async {
     try {
       await _firestore.collection('students').doc(studentId).update({
-        'busAssigned': busId,
+        'assignedBusID': busId,
+        'busAssigned': busDetails,
       });
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Bus assigned successfully')),
       );
     } catch (e) {
       print('Failed to assign bus: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to assign bus')),
+      );
     }
   }
 
@@ -225,7 +250,7 @@ class _ViewStudentsScreenState extends State<ViewStudentsScreen> {
                     itemCount: students.length,
                     itemBuilder: (context, index) {
                       var student = students[index];
-                      String? busAssigned = student['busAssigned'];
+                      String? busAssigned = student['assignedBusID'];
                       return Padding(
                         padding: const EdgeInsets.all(8.0),
                         child: Card(
@@ -244,17 +269,18 @@ class _ViewStudentsScreenState extends State<ViewStudentsScreen> {
                                       Text('Registration Number: ${student['studentNumber'] ?? ''}'),
                                       SizedBox(height: 4),
                                       FutureBuilder<String>(
-                                        future: _getBusName(busAssigned),
+                                        future: _getBusDetails(busAssigned), // Updated method call
                                         builder: (context, snapshot) {
                                           if (snapshot.connectionState == ConnectionState.waiting) {
                                             return Text('Loading bus details...');
                                           } else if (snapshot.hasError) {
                                             return Text('Error loading bus details: ${snapshot.error}');
                                           } else {
-                                            return Text('Assigned Vehicle Number: ${snapshot.data ?? 'Not Assigned'}');
+                                            return Text('Assigned Bus: ${snapshot.data ?? 'Not Assigned'}');
                                           }
                                         },
                                       ),
+
                                       SizedBox(height: 4),
                                       Text('Contact Number: ${student['studentPhone'] ?? ''}'),
                                     ],

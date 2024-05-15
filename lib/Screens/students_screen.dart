@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-
+import 'dart:math';
 class AddStudentScreen extends StatefulWidget {
   @override
   _AddStudentScreenState createState() => _AddStudentScreenState();
@@ -9,7 +9,7 @@ class AddStudentScreen extends StatefulWidget {
 class _AddStudentScreenState extends State<AddStudentScreen> {
   final _formKey = GlobalKey<FormState>();
   final _studentDetails = StudentDetails();
-  List<String> _busOptions = [];
+  List<DropdownMenuItem<String>> _busOptions = [];
   String? _selectedBus;
 
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -20,15 +20,47 @@ class _AddStudentScreenState extends State<AddStudentScreen> {
     _fetchBuses();
   }
 
+  String generateRandomPassword(int length) {
+    const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    Random rnd = Random();
+    return String.fromCharCodes(Iterable.generate(
+      length,
+          (_) => characters.codeUnitAt(rnd.nextInt(characters.length)),
+    ));
+  }
+
+  Future<void> createChatRoomIfNeeded(String busId) async {
+    try {
+      DocumentReference busChatRef = _firestore.collection('chats').doc(busId);
+      DocumentSnapshot busChatSnapshot = await busChatRef.get();
+
+      if (!busChatSnapshot.exists) {
+        // If there's no chat room for this bus, create one
+        await busChatRef.set({
+          'created_at': FieldValue.serverTimestamp(), // Timestamp of chat room creation
+          'bus_id': busId, // Associate chat room with the bus
+          'messages': [], // Initialize with an empty message array or object
+        });
+        print("Chat room created for bus: $busId");
+      }
+    } catch (e) {
+      print('Failed to create chat room: $e');
+    }
+  }
+
+
   Future<void> _fetchBuses() async {
     try {
       QuerySnapshot querySnapshot = await _firestore.collection('buses').get();
-      List<String> buses = [];
-      querySnapshot.docs.forEach((doc) {
+      var buses = <DropdownMenuItem<String>>[];
+      for (var doc in querySnapshot.docs) {
         String vehicleNumber = doc['vehicleNumber'];
         String timeSlot = doc['timeSlot'];
-        buses.add('$vehicleNumber - $timeSlot');
-      });
+        buses.add(DropdownMenuItem(
+          value: doc.id, // Store the document ID as the value
+          child: Text('$vehicleNumber - $timeSlot'),
+        ));
+      }
       setState(() {
         _busOptions = buses;
       });
@@ -44,7 +76,16 @@ class _AddStudentScreenState extends State<AddStudentScreen> {
         'studentName': studentDetails.studentName,
         'studentPhone': studentDetails.studentPhone,
         'busAssigned': studentDetails.busAssigned,
+        'assignedBusID': studentDetails.assignedBusID,
+        'password': studentDetails.password, // Store the generated password
+        'role': 'Student', // Store the role
       });
+
+
+      // After adding the student, check if a chat room needs to be created
+      if (studentDetails.assignedBusID != null) {
+        await createChatRoomIfNeeded(studentDetails.assignedBusID!);
+      }
 
       // Clear the form fields
       _formKey.currentState?.reset();
@@ -53,7 +94,6 @@ class _AddStudentScreenState extends State<AddStudentScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Student added successfully')),
       );
-
     } catch (e) {
       throw Exception('Failed to add student: $e');
     }
@@ -108,6 +148,7 @@ class _AddStudentScreenState extends State<AddStudentScreen> {
                   _studentDetails.studentPhone = value!;
                 },
               ),
+
               DropdownButtonFormField<String>(
                 decoration: InputDecoration(labelText: "Select a Bus"),
                 value: _selectedBus,
@@ -116,26 +157,31 @@ class _AddStudentScreenState extends State<AddStudentScreen> {
                     _selectedBus = newValue;
                   });
                 },
-                items: _busOptions.map((String bus) {
-                  return DropdownMenuItem<String>(
-                    value: bus,
-                    child: Text(bus),
-                  );
-                }).toList(),
+                items: _busOptions,
                 validator: (value) => value == null ? 'Please select a bus' : null,
               ),
+
               SizedBox(height: 20,),
               ElevatedButton(
                 onPressed: () {
                   if (_formKey.currentState?.validate() ?? false) {
                     _formKey.currentState!.save();
-                    _studentDetails.busAssigned = _selectedBus;
-                    // Access the provider and call addStudent method
+                    _studentDetails.password = generateRandomPassword(5); // Generate a random password when adding a student
+
+                    var selectedBusDisplay = _busOptions.firstWhere(
+                            (option) => option.value == _selectedBus,
+                        orElse: () => DropdownMenuItem<String>(value: '', child: Text('No Bus Selected'))
+                    ).child as Text;
+
+                    _studentDetails.busAssigned = selectedBusDisplay.data;
+                    _studentDetails.assignedBusID = _selectedBus;
                     addStudent(_studentDetails);
                   }
                 },
                 child: Text('Add Student'),
               ),
+
+
 
             ],
           ),
@@ -150,11 +196,18 @@ class StudentDetails {
   String? studentName;
   String? studentPhone;
   String? busAssigned;
+  String? assignedBusID;
+  String? password; // New field for password
+  String? role = 'Student'; // Default role
 
   StudentDetails({
     this.studentNumber,
     this.studentName,
     this.studentPhone,
-    this.busAssigned
+    this.busAssigned,
+    this.assignedBusID,
+    this.password,
+    this.role,
   });
 }
+

@@ -43,7 +43,6 @@ class _ViewBusesScreenState extends State<ViewBusesScreen> {
   }
 
   void _searchVehicles(String vehicleNumber) {
-    // Filter the list of buses based on the vehicle number
     setState(() {
       _busesFuture = _fetchBuses().then((buses) => buses.where((bus) =>
           bus['vehicleNumber']
@@ -51,6 +50,13 @@ class _ViewBusesScreenState extends State<ViewBusesScreen> {
               .toLowerCase()
               .contains(vehicleNumber.toLowerCase())).toList());
     });
+  }
+
+  Future<int> _getStudentCount(String busId) async {
+    var querySnapshot = await _firestore.collection('students')
+        .where('assignedBusID', isEqualTo: busId)
+        .get();
+    return querySnapshot.docs.length;
   }
 
   @override
@@ -72,7 +78,6 @@ class _ViewBusesScreenState extends State<ViewBusesScreen> {
                         icon: Icon(Icons.clear),
                         onPressed: () {
                           _searchController.clear();
-                          // Reset list to all buses
                           setState(() {
                             _busesFuture = _fetchBuses();
                           });
@@ -83,8 +88,7 @@ class _ViewBusesScreenState extends State<ViewBusesScreen> {
                 ),
                 IconButton(
                   icon: Icon(Icons.search),
-                  onPressed: () =>
-                      _searchVehicles(_searchController.text.trim()),
+                  onPressed: () => _searchVehicles(_searchController.text.trim()),
                 ),
               ],
             ),
@@ -92,8 +96,7 @@ class _ViewBusesScreenState extends State<ViewBusesScreen> {
           Expanded(
             child: FutureBuilder(
               future: _busesFuture,
-              builder: (context,
-                  AsyncSnapshot<List<QueryDocumentSnapshot>> snapshot) {
+              builder: (context, AsyncSnapshot<List<QueryDocumentSnapshot>> snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return Center(child: CircularProgressIndicator());
                 } else if (snapshot.hasError) {
@@ -104,34 +107,39 @@ class _ViewBusesScreenState extends State<ViewBusesScreen> {
                     itemCount: buses.length,
                     itemBuilder: (context, index) {
                       var bus = buses[index];
-                      return Padding(
-                        padding: const EdgeInsets.all(8.0),
-                        child: Card(
-                          elevation: 4,
-                          child: ListTile(
-                            title: Text(
-                              bus['driverName'] ?? '',
-                              style: TextStyle(
-                                  fontWeight: FontWeight.w500, fontSize: 20),
+                      return FutureBuilder<int>(
+                        future: _getStudentCount(bus.id),
+                        builder: (context, studentCountSnapshot) {
+                          int studentCount = studentCountSnapshot.data ?? 0;
+                          return Padding(
+                            padding: const EdgeInsets.all(8.0),
+                            child: Card(
+                              elevation: 4,
+                              child: ListTile(
+                                title: Text(
+                                  bus['driverName'] ?? '',
+                                  style: TextStyle(fontWeight: FontWeight.w500, fontSize: 20),
+                                ),
+                                subtitle: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text('Time Slot: ${bus['timeSlot'] ?? ''}'),
+                                    SizedBox(height: 4),
+                                    Text('Vehicle Number: ${bus['vehicleNumber'] ?? ''}'),
+                                    SizedBox(height: 4),
+                                    Text('Contact Number: ${bus['driverPhone'] ?? ''}'),
+                                    SizedBox(height: 4),
+                                    Text('Assigned Students: $studentCount'),
+                                  ],
+                                ),
+                                trailing: IconButton(
+                                  icon: Icon(Icons.delete),
+                                  onPressed: () => _deleteBus(bus.id),
+                                ),
+                              ),
                             ),
-                            subtitle: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text('Time Slot: ${bus['timeSlot'] ?? ''}'),
-                                SizedBox(height: 4),
-                                Text(
-                                    'Vehicle Number: ${bus['vehicleNumber'] ?? ''}'),
-                                SizedBox(height: 4),
-                                Text(
-                                    'Contact Number: ${bus['driverPhone'] ?? ''}'),
-                              ],
-                            ),
-                            trailing: IconButton(
-                              icon: Icon(Icons.delete),
-                              onPressed: () => _deleteBus(bus.id),
-                            ),
-                          ),
-                        ),
+                          );
+                        },
                       );
                     },
                   );

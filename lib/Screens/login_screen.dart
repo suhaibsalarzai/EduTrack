@@ -1,5 +1,7 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:edutrack/Screens/home_screen.dart';
 import 'package:edutrack/Screens/providers/login_provider.dart';
+import 'package:edutrack/Screens/student_home.dart';
 import 'package:flutter/material.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -8,25 +10,68 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-  final _emailController = TextEditingController();
+  final _idController = TextEditingController();
   final _passwordController = TextEditingController();
   String _selectedRole = 'Admin';
   final FirestoreAuthService _authService = FirestoreAuthService();
 
   void _login() async {
-    String? errorMessage = await _authService.loginWithCredentials(
-      _emailController.text,
-      _passwordController.text,
-      _selectedRole,
-    );
+    String? errorMessage;
+
+    if (_selectedRole == 'Admin') {
+      QuerySnapshot querySnapshot = await FirebaseFirestore.instance
+          .collection('users')
+          .where('id', isEqualTo: _idController.text)
+          .where('password', isEqualTo: _passwordController.text)
+          .get();
+
+      if (querySnapshot.docs.isNotEmpty) {
+        var userData = querySnapshot.docs.first.data() as Map<String, dynamic>?; // Explicitly cast to Map<String, dynamic>
+        if (userData != null && userData['password'] == _passwordController.text) {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (context) => HomeScreen()),
+          );
+        } else {
+          errorMessage = 'Invalid ID or password for Admin.';
+        }
+      } else {
+        errorMessage = 'Invalid ID or password for Admin.';
+      }
+    } else if (_selectedRole == 'Student') {
+      QuerySnapshot querySnapshot = await FirebaseFirestore.instance
+          .collection('students')
+          .where('studentNumber', isEqualTo: _idController.text)
+          .where('password', isEqualTo: _passwordController.text)
+          .get();
+
+      if (querySnapshot.docs.isNotEmpty) {
+        var studentData = querySnapshot.docs.first.data() as Map<String, dynamic>?; // Explicitly cast to Map<String, dynamic>
+        if (studentData != null) {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+              builder: (context) => StudentHomePage(
+                studentName: studentData['studentName'],
+                assignedBusID: studentData['assignedBusID'],
+                role: studentData['role'],
+              ),
+            ),
+          );
+        } else {
+          errorMessage = 'Invalid ID or password for Student.';
+        }
+      } else {
+        errorMessage = 'Invalid ID or password for Student.';
+      }
+    } else {
+      errorMessage = 'Role not supported.';
+    }
 
     if (errorMessage != null) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(errorMessage)));
-    } else {
-      Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => HomeScreen()));
     }
   }
-
 
   @override
   Widget build(BuildContext context) {
@@ -63,7 +108,7 @@ class _LoginScreenState extends State<LoginScreen> {
               ),
               SizedBox(height: 68.0),
               TextField(
-                controller: _emailController,
+                controller: _idController,
                 keyboardType: TextInputType.emailAddress,
                 decoration: InputDecoration(
                   labelText: 'Registration Number',
@@ -105,10 +150,10 @@ class _LoginScreenState extends State<LoginScreen> {
                   'Login',
                   style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
                 ),
-               // onPressed:  _login,
-                onPressed: (){
-                  Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => HomeScreen()));
-                }
+                onPressed:  _login,
+               //  onPressed: (){
+               //    Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => HomeScreen( )));
+               //  }
 
               ),
               SizedBox(height: 12.0),
@@ -118,4 +163,8 @@ class _LoginScreenState extends State<LoginScreen> {
       ),
     );
   }
+
+
+
+
 }

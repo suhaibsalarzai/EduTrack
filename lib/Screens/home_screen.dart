@@ -1,3 +1,4 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:edutrack/Screens/add_parent_screen.dart';
 import 'package:edutrack/Screens/login_screen.dart';
 import 'package:edutrack/Screens/view_parents_screen.dart';
@@ -6,7 +7,9 @@ import 'package:edutrack/Screens/view_buses_screen.dart';
 import 'package:edutrack/Screens/view_student_screen.dart';
 import 'package:flutter/material.dart';
 
+import 'announcements_screen.dart';
 import 'bus_screen.dart';
+import 'chat_screen.dart';
 
 class HomeScreen extends StatelessWidget {
 
@@ -148,11 +151,52 @@ class HomeScreen extends StatelessWidget {
                 ),
               ),
             ),
+
+            Padding(
+              padding: EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+              child: Container(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () {
+                    showChatRooms(context);
+                  },
+                  child: Text('Start Chat'),
+                  style: ElevatedButton.styleFrom(
+                    foregroundColor: Colors.white,
+                    backgroundColor: Colors.teal.shade500,
+                    padding: EdgeInsets.symmetric(vertical: 20.0),
+                  ),
+                ),
+              ),
+            ),
+            Padding(
+              padding: EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+              child: Container(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () {
+                   Navigator.push(context, MaterialPageRoute(builder: (context)=>AnnouncementsPage()));
+                  },
+                  style: ElevatedButton.styleFrom(
+                    foregroundColor: Colors.white,
+                    backgroundColor: Colors.cyan.shade600,
+                    padding: const EdgeInsets.symmetric(vertical: 20.0),
+                  ),
+                  child: const Text('Send Announcement'),
+                ),
+              ),
+            ),
+
           ],
         ),
       ),
     );
   }
+  void showChatRooms(BuildContext context) {
+    Navigator.push(context, MaterialPageRoute(builder: (context) => ChatRoomsScreen()));
+  }
+
+
 
   Widget _createDashboardItem(BuildContext context, String title, IconData icon,
       Color color, VoidCallback onTap) {
@@ -177,6 +221,76 @@ class HomeScreen extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+
+class ChatRoomsScreen
+    extends StatelessWidget {
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+
+  // Navigate to ChatPage
+  Future<void> navigateToChat(BuildContext context, String busId) async {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => ChatPage(busId: busId)),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: Text("Select a Chat Room"), backgroundColor: Colors.purple),
+      body: StreamBuilder<QuerySnapshot>(
+        stream: _firestore.collection('chats').snapshots(),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return Center(child: CircularProgressIndicator());
+          }
+          if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+            return Center(child: Text("No chat rooms available."));
+          }
+          return ListView.builder(
+            itemCount: snapshot.data!.docs.length,
+            itemBuilder: (context, index) {
+              var doc = snapshot.data!.docs[index];
+              var busId = doc.id;  // Assuming the doc ID is the bus ID
+              return FutureBuilder<DocumentSnapshot>(
+                future: _firestore.collection('buses').doc(busId).get(),
+                builder: (context, busSnapshot) {
+                  if (busSnapshot.connectionState == ConnectionState.waiting) {
+                    return ListTile(
+                      title: Text("Loading..."),
+                      subtitle: Text("Fetching details for Bus"),
+                    );
+                  }
+                  if (!busSnapshot.hasData || busSnapshot.data == null || busSnapshot.data!.data() == null) {
+                    return SizedBox.shrink();
+                    //   ListTile(
+                    //   title: Text("Details not available"),
+                    //   subtitle: Text("No details for Bus"),
+                    // );
+                  }
+                  var busData = busSnapshot.data!.data() as Map<String, dynamic>;
+                  var driverName = busData['driverName'] ?? 'Unknown';
+                  var vehicleNumber = busData['vehicleNumber'] ?? 'Unknown';
+                  return ListTile(
+                    title: Row(
+                      children: [
+                        Text("Chat Room for Vehicle Number "),
+                        Text('$vehicleNumber', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 18)),
+                      ],
+                    ),
+                    subtitle: Text("Driver Name: $driverName"),
+                    onTap: () => navigateToChat(context, busId),
+                  );
+                },
+              );
+            },
+          );
+        },
       ),
     );
   }
