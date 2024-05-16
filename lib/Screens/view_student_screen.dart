@@ -1,4 +1,3 @@
-
 import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -22,7 +21,6 @@ class _ViewStudentsScreenState extends State<ViewStudentsScreen> {
     _fetchBuses();
   }
 
-// Fetch students data
   Future<List<QueryDocumentSnapshot>> _fetchStudents() async {
     try {
       QuerySnapshot querySnapshot = await _firestore.collection('students').get();
@@ -34,7 +32,6 @@ class _ViewStudentsScreenState extends State<ViewStudentsScreen> {
     }
   }
 
-  // Get bus details by busId
   Future<String> _getBusDetails(String? busId) async {
     if (busId == null) return 'Not Assigned';
 
@@ -51,13 +48,11 @@ class _ViewStudentsScreenState extends State<ViewStudentsScreen> {
     return 'Details Not Available';
   }
 
-
-// Delete student
   Future<void> _deleteStudent(String studentId) async {
     try {
       await _firestore.collection('students').doc(studentId).delete();
       setState(() {
-        _studentsFuture = _fetchStudents(); // Refresh the student list after deletion
+        _studentsFuture = _fetchStudents();
       });
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Student deleted successfully')),
@@ -67,14 +62,13 @@ class _ViewStudentsScreenState extends State<ViewStudentsScreen> {
     }
   }
 
-
   void _searchStudents(String registrationNumber) {
-    print('the studnent numer is $registrationNumber');
+    print('the student number is $registrationNumber');
     List<QueryDocumentSnapshot> filteredStudents = _students.where((student) {
-      print(' the database numer is ${student['studentNumber']}');
+      print(' the database number is ${student['studentNumber']}');
       return student['studentNumber'].toLowerCase() == registrationNumber.toLowerCase();
     }).toList();
-    print('the filterd studnets are ${filteredStudents}');
+    print('the filtered students are ${filteredStudents}');
     if (filteredStudents.isEmpty) {
       showDialog(
         context: context,
@@ -98,10 +92,6 @@ class _ViewStudentsScreenState extends State<ViewStudentsScreen> {
     }
   }
 
-
-  // Existing methods (e.g., _deleteStudent, _assignBus, _fetchBuses, _getBusName, _showBusAssignmentDialog)
-  // have not been modified and should be included here without changes.
-  // Fetch buses data
   Future<void> _fetchBuses() async {
     try {
       QuerySnapshot querySnapshot = await _firestore.collection('buses').get();
@@ -110,74 +100,88 @@ class _ViewStudentsScreenState extends State<ViewStudentsScreen> {
       });
     } catch (e) {
       print('Failed to fetch buses: $e');
-      _buses = []; // Ensure _buses is initialized as an empty list
+      _buses = [];
     }
   }
 
-
-  // Get bus name by busId
   Future<String> _getBusName(String? busId) async {
     if (busId == null) return '';
-
 
     try {
       var busDoc = await _firestore.collection('buses').doc(busId).get();
       var busData = busDoc.data() as Map<String, dynamic>?;
-      if (busData != null ) {
+      if (busData != null) {
         return busData['vehicleNumber'] ?? '';
       }
     } catch (e) {
       print('Error fetching bus details: $e');
     }
 
-
     return '';
   }
+
   Future<void> _showBusAssignmentDialog(String studentId, String? currentBusId) async {
     Map<String, String>? newBusDetails = await showDialog<Map<String, String>?>(
       context: context,
       builder: (BuildContext context) {
+        String? selectedBusId = currentBusId;
         return AlertDialog(
           title: Text('Assign Bus'),
-          content: SingleChildScrollView(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text('Select a bus to assign:'),
-                DropdownButtonFormField<String>(
-                  value: currentBusId,
-                  onChanged: (String? newValue) {
-                    // Using firstWhereOrNull to safely handle the case where no bus matches
-                    var selectedBus = _buses.firstWhereOrNull((bus) => bus.id == newValue);
-                    if (selectedBus != null) {
-                      Navigator.pop(context, {
-                        'id': selectedBus.id,
-                        'details': '${selectedBus['vehicleNumber']} at ${selectedBus['timeSlot']}'
-                      });
-                    }
-                  },
-                  items: _buses.map((DocumentSnapshot bus) {
-                    return DropdownMenuItem<String>(
-                      value: bus.id,
-                      child: Text('${bus['vehicleNumber']} at ${bus['timeSlot']}'),
-                    );
-                  }).toList(),
+          content: StatefulBuilder(
+            builder: (BuildContext context, StateSetter setState) {
+              return SingleChildScrollView(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text('Select a bus to assign:'),
+                    DropdownButtonFormField<String>(
+                      value: selectedBusId,
+                      onChanged: (String? newValue) {
+                        setState(() {
+                          selectedBusId = newValue;
+                        });
+                      },
+                      items: _buses.map((DocumentSnapshot bus) {
+                        return DropdownMenuItem<String>(
+                          value: bus.id,
+                          child: Text('${bus['vehicleNumber']} at ${bus['timeSlot']}'),
+                        );
+                      }).toList(),
+                      validator: (value) {
+                        if (value == null) {
+                          return 'Please select a bus';
+                        }
+                        return null;
+                      },
+                    ),
+                  ],
                 ),
-              ],
-            ),
+              );
+            },
           ),
           actions: <Widget>[
             TextButton(
               onPressed: () => Navigator.pop(context, null),
               child: Text('Cancel'),
             ),
+            TextButton(
+              onPressed: () {
+                if (selectedBusId != null) {
+                  var selectedBus = _buses.firstWhere((bus) => bus.id == selectedBusId);
+                  Navigator.pop(context, {
+                    'id': selectedBus.id,
+                    'details': '${selectedBus['vehicleNumber']} at ${selectedBus['timeSlot']}'
+                  });
+                }
+              },
+              child: Text('Assign'),
+            ),
           ],
         );
       },
     );
 
-    // If the user selected a bus, update the student's record
     if (newBusDetails != null) {
       await _assignBus(studentId, newBusDetails['id'], newBusDetails['details']);
     }
@@ -200,8 +204,6 @@ class _ViewStudentsScreenState extends State<ViewStudentsScreen> {
     }
   }
 
-
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -222,7 +224,7 @@ class _ViewStudentsScreenState extends State<ViewStudentsScreen> {
                         onPressed: () {
                           _searchController.clear();
                           setState(() {
-                            _studentsFuture = Future.value(_students); // Reset list to all students
+                            _studentsFuture = Future.value(_students);
                           });
                         },
                       ),
@@ -269,7 +271,7 @@ class _ViewStudentsScreenState extends State<ViewStudentsScreen> {
                                       Text('Registration Number: ${student['studentNumber'] ?? ''}'),
                                       SizedBox(height: 4),
                                       FutureBuilder<String>(
-                                        future: _getBusDetails(busAssigned), // Updated method call
+                                        future: _getBusDetails(busAssigned),
                                         builder: (context, snapshot) {
                                           if (snapshot.connectionState == ConnectionState.waiting) {
                                             return Text('Loading bus details...');
@@ -280,7 +282,6 @@ class _ViewStudentsScreenState extends State<ViewStudentsScreen> {
                                           }
                                         },
                                       ),
-
                                       SizedBox(height: 4),
                                       Text('Contact Number: ${student['studentPhone'] ?? ''}'),
                                     ],
@@ -314,4 +315,3 @@ class _ViewStudentsScreenState extends State<ViewStudentsScreen> {
     );
   }
 }
-

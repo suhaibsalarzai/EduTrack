@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'dart:math';
 
 class AddParentScreen extends StatefulWidget {
   @override
@@ -12,8 +13,18 @@ class _AddParentScreenState extends State<AddParentScreen> {
   final TextEditingController _registrationNumberController = TextEditingController();
   final TextEditingController _parentNameController = TextEditingController();
   final TextEditingController _parentContactController = TextEditingController();
+  final TextEditingController _cnicController = TextEditingController();
 
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+
+  String generateRandomPassword(int length) {
+    const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    Random rnd = Random();
+    return String.fromCharCodes(Iterable.generate(
+      length,
+          (_) => characters.codeUnitAt(rnd.nextInt(characters.length)),
+    ));
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -46,18 +57,28 @@ class _AddParentScreenState extends State<AddParentScreen> {
                 },
               ),
               TextFormField(
-                controller: _childNameController,
-                decoration: InputDecoration(labelText: 'Child/Children Name'),
+                controller: _cnicController,
+                decoration: InputDecoration(labelText: 'CNIC'),
                 validator: (value) {
                   if (value == null || value.isEmpty) {
-                    return 'Please enter child/children name';
+                    return 'Please enter CNIC';
+                  }
+                  return null;
+                },
+              ),
+              TextFormField(
+                controller: _childNameController,
+                decoration: InputDecoration(labelText: 'Child Name'),
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Please enter child name';
                   }
                   return null;
                 },
               ),
               TextFormField(
                 controller: _registrationNumberController,
-                decoration: InputDecoration(labelText: 'Child/Children Registration Number'),
+                decoration: InputDecoration(labelText: 'Child Registration Number'),
                 validator: (value) {
                   if (value == null || value.isEmpty) {
                     return 'Please enter registration number';
@@ -83,16 +104,39 @@ class _AddParentScreenState extends State<AddParentScreen> {
 
   Future<void> _addParent() async {
     try {
-      await _firestore.collection('parents').add({
-        'parentName': _parentNameController.text,
-        'parentContact': _parentContactController.text,
-        'childName': _childNameController.text,
-        'registrationNumber': _registrationNumberController.text,
-      });
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Parent added successfully')),
-      );
-      _formKey.currentState?.reset();
+      // Check for existing parent with the same CNIC
+      QuerySnapshot querySnapshot = await _firestore
+          .collection('parents')
+          .where('parentCNIC', isEqualTo: _cnicController.text)
+          .get();
+
+      if (querySnapshot.docs.isNotEmpty) {
+        // If a parent with the same CNIC already exists, show an error message
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Parent with this CNIC already exists')),
+        );
+      } else {
+        // If no duplicate found, proceed to add the new parent
+        String generatedPassword = generateRandomPassword(5);
+
+        await _firestore.collection('parents').add({
+          'parentName': _parentNameController.text,
+          'parentContact': _parentContactController.text,
+          'parentCNIC': _cnicController.text,
+          'childName': _childNameController.text,
+          'registrationNumber': _registrationNumberController.text,
+          'password': generatedPassword,
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Parent added successfully')),
+        );
+        _formKey.currentState?.reset();
+        _parentNameController.clear();
+        _parentContactController.clear();
+        _cnicController.clear();
+        _childNameController.clear();
+        _registrationNumberController.clear();
+      }
     } catch (e) {
       print('Failed to add parent: $e');
       ScaffoldMessenger.of(context).showSnackBar(

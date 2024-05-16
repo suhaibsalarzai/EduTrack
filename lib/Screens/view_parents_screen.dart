@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:provider/provider.dart';
 
+
 class ParentData extends ChangeNotifier {
   List<QueryDocumentSnapshot>? _allParents;
   List<QueryDocumentSnapshot>? _originalParents;
@@ -10,8 +11,7 @@ class ParentData extends ChangeNotifier {
 
   Future<void> fetchParents(FirebaseFirestore firestore) async {
     try {
-      QuerySnapshot querySnapshot =
-      await firestore.collection('parents').get();
+      QuerySnapshot querySnapshot = await firestore.collection('parents').get();
       _allParents = querySnapshot.docs;
       _originalParents = _allParents!.toList(); // Store a copy of original data
     } catch (e) {
@@ -30,7 +30,7 @@ class ParentData extends ChangeNotifier {
       } else {
         _allParents = _originalParents!
             .where((parent) =>
-            parent['parentName']
+            parent['registrationNumber']
                 .toString()
                 .toLowerCase()
                 .contains(query.toLowerCase()))
@@ -44,7 +44,7 @@ class ParentData extends ChangeNotifier {
             builder: (context) {
               return AlertDialog(
                 title: Text("Search Result"),
-                content: Text("No parent found with that name."),
+                content: Text("No parent found with that registration number."),
                 actions: <Widget>[
                   TextButton(
                     child: Text('OK'),
@@ -57,14 +57,15 @@ class ParentData extends ChangeNotifier {
             },
           );
         } else {
-          print('the searched outcome is ${_allParents?.first}');
+          print('The searched outcome is ${_allParents?.first}');
         }
       }
     }
     notifyListeners(); // Notify listeners after updating the _allParents list
   }
 
-  Future<void> deleteParent(BuildContext context, FirebaseFirestore firestore, String parentId) async {
+  Future<void> deleteParent(
+      BuildContext context, FirebaseFirestore firestore, String parentId) async {
     try {
       await firestore.collection('parents').doc(parentId).delete();
       await fetchParents(firestore); // Refresh the parent list after deletion
@@ -76,6 +77,7 @@ class ParentData extends ChangeNotifier {
     }
   }
 }
+
 
 class ViewParentsScreen extends StatefulWidget {
   @override
@@ -97,7 +99,7 @@ class _ViewParentsScreenState extends State<ViewParentsScreen> {
   void resetSearch() {
     _searchController.clear(); // Clear the search query
     Provider.of<ParentData>(context, listen: false)
-        .searchParent('',context); // Reset to show all parents
+        .searchParent('', context); // Reset to show all parents
     setState(() {}); // Update UI after resetting search
   }
 
@@ -108,7 +110,8 @@ class _ViewParentsScreenState extends State<ViewParentsScreen> {
         title: Text("View Parents"),
       ),
       body: FutureBuilder(
-        future: Provider.of<ParentData>(context, listen: false).fetchParents(FirebaseFirestore.instance),
+        future: Provider.of<ParentData>(context, listen: false)
+            .fetchParents(FirebaseFirestore.instance),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             // Show loading indicator while data is being fetched
@@ -125,7 +128,7 @@ class _ViewParentsScreenState extends State<ViewParentsScreen> {
                         child: TextField(
                           controller: _searchController,
                           decoration: InputDecoration(
-                            labelText: 'Search Parent',
+                            labelText: 'Search by Registration Number',
                             border: OutlineInputBorder(),
                             suffixIcon: IconButton(
                               icon: Icon(Icons.clear),
@@ -139,10 +142,8 @@ class _ViewParentsScreenState extends State<ViewParentsScreen> {
                         onPressed: () {
                           Provider.of<ParentData>(context, listen: false)
                               .searchParent(_searchController.text, context); // Pass context
-                          // Update UI after searching
                         },
                       ),
-
                     ],
                   ),
                 ),
@@ -167,8 +168,14 @@ class _ViewParentsScreenState extends State<ViewParentsScreen> {
                                     parent['parentName'] ?? '',
                                     style: TextStyle(fontWeight: FontWeight.bold),
                                   ),
-                                  subtitle: Text(
-                                      'Contact Number: ${parent['parentContact'] ?? ''}'),
+                                  subtitle: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text('Contact Number: ${parent['parentContact'] ?? ''}'),
+                                      Text('Child Name: ${parent['childName'] ?? ''}'),
+                                      Text('Registration Number: ${parent['registrationNumber'] ?? ''}'),
+                                    ],
+                                  ),
                                   trailing: IconButton(
                                     icon: Icon(Icons.delete),
                                     onPressed: () {

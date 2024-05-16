@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'dart:math';
+
 class AddStudentScreen extends StatefulWidget {
   @override
   _AddStudentScreenState createState() => _AddStudentScreenState();
@@ -35,11 +36,10 @@ class _AddStudentScreenState extends State<AddStudentScreen> {
       DocumentSnapshot busChatSnapshot = await busChatRef.get();
 
       if (!busChatSnapshot.exists) {
-        // If there's no chat room for this bus, create one
         await busChatRef.set({
-          'created_at': FieldValue.serverTimestamp(), // Timestamp of chat room creation
-          'bus_id': busId, // Associate chat room with the bus
-          'messages': [], // Initialize with an empty message array or object
+          'created_at': FieldValue.serverTimestamp(),
+          'bus_id': busId,
+          'messages': [],
         });
         print("Chat room created for bus: $busId");
       }
@@ -47,7 +47,6 @@ class _AddStudentScreenState extends State<AddStudentScreen> {
       print('Failed to create chat room: $e');
     }
   }
-
 
   Future<void> _fetchBuses() async {
     try {
@@ -57,7 +56,7 @@ class _AddStudentScreenState extends State<AddStudentScreen> {
         String vehicleNumber = doc['vehicleNumber'];
         String timeSlot = doc['timeSlot'];
         buses.add(DropdownMenuItem(
-          value: doc.id, // Store the document ID as the value
+          value: doc.id,
           child: Text('$vehicleNumber - $timeSlot'),
         ));
       }
@@ -71,29 +70,36 @@ class _AddStudentScreenState extends State<AddStudentScreen> {
 
   Future<void> addStudent(StudentDetails studentDetails) async {
     try {
-      await _firestore.collection('students').add({
-        'studentNumber': studentDetails.studentNumber,
-        'studentName': studentDetails.studentName,
-        'studentPhone': studentDetails.studentPhone,
-        'busAssigned': studentDetails.busAssigned,
-        'assignedBusID': studentDetails.assignedBusID,
-        'password': studentDetails.password, // Store the generated password
-        'role': 'Student', // Store the role
-      });
+      QuerySnapshot querySnapshot = await _firestore
+          .collection('students')
+          .where('studentNumber', isEqualTo: studentDetails.studentNumber)
+          .get();
 
+      if (querySnapshot.docs.isNotEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Student with this Registration Number already exists')),
+        );
+      } else {
+        await _firestore.collection('students').add({
+          'studentNumber': studentDetails.studentNumber,
+          'studentName': studentDetails.studentName,
+          'studentPhone': studentDetails.studentPhone,
+          'busAssigned': studentDetails.busAssigned,
+          'assignedBusID': studentDetails.assignedBusID,
+          'password': studentDetails.password,
+          'role': 'Student',
+        });
 
-      // After adding the student, check if a chat room needs to be created
-      if (studentDetails.assignedBusID != null) {
-        await createChatRoomIfNeeded(studentDetails.assignedBusID!);
+        if (studentDetails.assignedBusID != null) {
+          await createChatRoomIfNeeded(studentDetails.assignedBusID!);
+        }
+
+        _formKey.currentState?.reset();
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Student added successfully')),
+        );
       }
-
-      // Clear the form fields
-      _formKey.currentState?.reset();
-
-      // Show a Snackbar message
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Student added successfully')),
-      );
     } catch (e) {
       throw Exception('Failed to add student: $e');
     }
@@ -122,7 +128,6 @@ class _AddStudentScreenState extends State<AddStudentScreen> {
                   _studentDetails.studentNumber = value!;
                 },
               ),
-
               TextFormField(
                 decoration: InputDecoration(labelText: 'Student Name'),
                 validator: (value) {
@@ -135,7 +140,6 @@ class _AddStudentScreenState extends State<AddStudentScreen> {
                   _studentDetails.studentName = value!;
                 },
               ),
-
               TextFormField(
                 decoration: InputDecoration(labelText: 'Student Phone Number'),
                 validator: (value) {
@@ -148,7 +152,6 @@ class _AddStudentScreenState extends State<AddStudentScreen> {
                   _studentDetails.studentPhone = value!;
                 },
               ),
-
               DropdownButtonFormField<String>(
                 decoration: InputDecoration(labelText: "Select a Bus"),
                 value: _selectedBus,
@@ -160,13 +163,12 @@ class _AddStudentScreenState extends State<AddStudentScreen> {
                 items: _busOptions,
                 validator: (value) => value == null ? 'Please select a bus' : null,
               ),
-
               SizedBox(height: 20,),
               ElevatedButton(
                 onPressed: () {
                   if (_formKey.currentState?.validate() ?? false) {
                     _formKey.currentState!.save();
-                    _studentDetails.password = generateRandomPassword(5); // Generate a random password when adding a student
+                    _studentDetails.password = generateRandomPassword(5);
 
                     var selectedBusDisplay = _busOptions.firstWhere(
                             (option) => option.value == _selectedBus,
@@ -180,9 +182,6 @@ class _AddStudentScreenState extends State<AddStudentScreen> {
                 },
                 child: Text('Add Student'),
               ),
-
-
-
             ],
           ),
         ),
@@ -197,8 +196,8 @@ class StudentDetails {
   String? studentPhone;
   String? busAssigned;
   String? assignedBusID;
-  String? password; // New field for password
-  String? role = 'Student'; // Default role
+  String? password;
+  String? role = 'Student';
 
   StudentDetails({
     this.studentNumber,
@@ -210,4 +209,3 @@ class StudentDetails {
     this.role,
   });
 }
-

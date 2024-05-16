@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'dart:math';
 
 class BusDetailsForm extends StatefulWidget {
   @override
@@ -12,23 +13,51 @@ class _BusDetailsFormState extends State<BusDetailsForm> {
 
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
+  String generateRandomPassword(int length) {
+    const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    Random rnd = Random();
+    return String.fromCharCodes(Iterable.generate(
+      length,
+          (_) => characters.codeUnitAt(rnd.nextInt(characters.length)),
+    ));
+  }
+
   Future<void> addBus(BusDetails busDetails) async {
     try {
-      await _firestore.collection('buses').add({
-        'vehicleNumber': busDetails.vehicleNumber,
-        'driverName': busDetails.driverName,
-        'driverPhone': busDetails.driverPhone,
-        'timeSlot': busDetails.timeSlot,
-      });
+      // Convert vehicleNumber to uppercase for case-insensitive comparison
+      String vehicleNumberUpperCase = busDetails.vehicleNumber!.toUpperCase();
 
-      // Reset the form fields
-      _formKey.currentState?.reset();
+      // Check for existing bus with the same vehicleNumber in uppercase
+      QuerySnapshot querySnapshot = await _firestore
+          .collection('buses')
+          .where('vehicleNumber', isEqualTo: vehicleNumberUpperCase)
+          .get();
 
-      // Show Snackbar message
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Bus added successfully')),
-      );
+      if (querySnapshot.docs.isNotEmpty) {
+        // If a bus with the same vehicleNumber already exists, show an error message
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Bus with this Vehicle Number already exists')),
+        );
+      } else {
+        // If no duplicate found, proceed to add the new bus
+        await _firestore.collection('buses').add({
+          'vehicleNumber': vehicleNumberUpperCase,
+'role':'Driver',
+          'driverName': busDetails.driverName,
+          'driverPhone': busDetails.driverPhone,
+          'driverCNIC': busDetails.driverCNIC,
+          'driverPassword': busDetails.driverPassword,
+          'timeSlot': busDetails.timeSlot,
+        });
 
+        // Reset the form fields
+        _formKey.currentState?.reset();
+
+        // Show Snackbar message
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Bus added successfully')),
+        );
+      }
     } catch (e) {
       throw Exception('Failed to add bus: $e');
     }
@@ -57,7 +86,6 @@ class _BusDetailsFormState extends State<BusDetailsForm> {
                   _busDetails.vehicleNumber = value!;
                 },
               ),
-
               TextFormField(
                 decoration: InputDecoration(labelText: 'Driver Name'),
                 validator: (value) {
@@ -70,7 +98,6 @@ class _BusDetailsFormState extends State<BusDetailsForm> {
                   _busDetails.driverName = value!;
                 },
               ),
-
               TextFormField(
                 decoration: InputDecoration(labelText: 'Driver Phone Number'),
                 validator: (value) {
@@ -81,6 +108,18 @@ class _BusDetailsFormState extends State<BusDetailsForm> {
                 },
                 onSaved: (value) {
                   _busDetails.driverPhone = value!;
+                },
+              ),
+              TextFormField(
+                decoration: InputDecoration(labelText: 'Driver CNIC'),
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Please enter driver CNIC';
+                  }
+                  return null;
+                },
+                onSaved: (value) {
+                  _busDetails.driverCNIC = value!;
                 },
               ),
               DropdownButtonFormField<String>(
@@ -105,13 +144,14 @@ class _BusDetailsFormState extends State<BusDetailsForm> {
                 onPressed: () {
                   if (_formKey.currentState?.validate() ?? false) {
                     _formKey.currentState!.save();
-                    // Access the provider and call addBus method
+                    // Generate a random password for the driver
+                    _busDetails.driverPassword = generateRandomPassword(5);
+                    // Add the bus details
                     addBus(_busDetails);
                   }
                 },
                 child: Text('Add Bus'),
               ),
-
             ],
           ),
         ),
@@ -124,12 +164,16 @@ class BusDetails {
   String? vehicleNumber;
   String? driverName;
   String? driverPhone;
+  String? driverCNIC;
+  String? driverPassword;
   String? timeSlot;
 
   BusDetails({
     this.vehicleNumber,
     this.driverName,
     this.driverPhone,
-    this.timeSlot
+    this.driverCNIC,
+    this.driverPassword,
+    this.timeSlot,
   });
 }

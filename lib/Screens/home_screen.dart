@@ -235,7 +235,7 @@ class ChatRoomsScreen
   Future<void> navigateToChat(BuildContext context, String busId) async {
     Navigator.push(
       context,
-      MaterialPageRoute(builder: (context) => ChatPage(busId: busId)),
+      MaterialPageRoute(builder: (context) => ChatPage(busId: busId, role: 'Admin',)),
     );
   }
 
